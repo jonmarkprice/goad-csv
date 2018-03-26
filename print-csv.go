@@ -14,6 +14,7 @@ func main() {
 	errlog := log.New(os.Stderr, "", 0)
 
 	filename := flag.String("file", "", "JSON file to read")
+	sep := flag.String("sep", "\t", "Seperator for CSV");
 	flag.Parse()
 
 	if *filename == "" {
@@ -35,6 +36,6 @@ func main() {
 	if err != nil {
 		errlog.Fatal(err)
 	}
-	csv.Print(data)
+	csv.Print(data, *sep)
 }
 

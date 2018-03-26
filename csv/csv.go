@@ -16,19 +16,33 @@ import (
 	"fmt"
 	"log"
 	"math"
-	// "errors"
+	"regexp"
 
 	"goad-csv/intermediate"
 	"goad-csv/reducers"
 )
 
+func getPath(url string) (string, bool) {
+	path, err := regexp.Compile("https?://.*(/.*)")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	matches := path.FindStringSubmatch(url)
+	if len(matches) == 2 {
+		return matches[1], true
+	}
+	return "", false
+}
+
 // func Print(parsed *[]summary.Description) {
-func Print(results *[]intermediate.Result) {
+func Print(results *[]intermediate.Result, sep string) {
 	// We want a single pass structuring.
-	colsets := make(map[[2]int][]intermediate.Result)
+	// colsets := make(map[[2]int][]intermediate.Result)
 
 	// Copy from a list of results to a "Matrix" map with a pair as keys.
 	// TODO This would be a lot more efficient if it used ptrs vs. copying.
+  /*
 	for _, entry := range *results {
 		c := entry.Concurrency
 		r := entry.Requests
@@ -45,8 +59,11 @@ func Print(results *[]intermediate.Result) {
 			colsets[index] = p
 		}
 	}
+  */
 
 	headers := [...]string{
+    "Conc",
+    "Req",
 		"URL",
 		"Mean",
 		"SD",
@@ -64,6 +81,7 @@ func Print(results *[]intermediate.Result) {
 	// These variable names are unhelpful / misleading
 	// "colsets" should be "col[umn]sets" or something.
 	// As it's really "colsets per (R x C) pair"...
+  /*
 	routeCount := 0
 	for _, route := range colsets {
 		// max
@@ -73,12 +91,10 @@ func Print(results *[]intermediate.Result) {
 	}
 	log.Printf("Detected %d columns sets.\n", routeCount)
 
-
+  */
 	if len(*results) == 0 {
 		return
 	}
-
-
 
 	// Getting "invalid argument" for len
 	// var x map[string]intermediate.MetricData
@@ -99,52 +115,60 @@ func Print(results *[]intermediate.Result) {
 	// */
 
 	// Print headers
-	fmt.Printf("%s;%s;", "Conc", "Req")
-	for i := 0; i < routeCount; i++ {
-		for _, text := range headers {
-			fmt.Printf("%s;", text)
-		}
-
-		// Print performance data headers 
-		for _, name := range metrics {
-			fmt.Printf("%s;", name)
-		}
+	// fmt.Printf("Conc%s", sep)
+	// fmt.Printf("Req%s", sep)
+	// for i := 0; i < len(*results); i++ {
+	for _, text := range headers {
+		fmt.Printf("%s%s", text, sep)
 	}
+
+	// Print performance data headers 
+	for _, name := range metrics {
+		fmt.Printf("%s%s", name, sep)
+	}
+	// }
 	fmt.Println()
 
 	// Print data
-	for key, value := range colsets {
-		fmt.Printf("%d;%d;", key[0], key[1])
-		for _, item := range value {
-			fmt.Printf("%s;", item.Path)
-			fmt.Printf("%.0f;", item.AvgReqTime)
-			fmt.Printf("%.2f;", item.ReqTimeSD)
-			fmt.Printf("%.2f;", item.ReqsPerSec)
-			fmt.Printf("%d;", item.MinReqTime)
-			fmt.Printf("%d;", item.MaxReqTime)
-			fmt.Printf("%d;", item.Time95PctDone)
-			fmt.Printf("%d;", item.ErrorCount)
-
-			// We need to do this in a consistent order.
-			for _, name := range metrics {
-				metric, ok := (*item.Performance.Metrics)[name]
-				if !ok {
-					fmt.Printf("metric: '%s' not found.\n", name)
-				}
-
-				summary, ok := summarize(metric.Statistic, metric.Datapoints)
-				if ok {
-					fmt.Printf("%.2f;", summary)
-				} else {
-					fmt.Printf("--;")
-					fmt.Printf("metric name: '%s', value:  %v\n", name, metric)
-					panic("Not ok!")
-				}
-			}
-		}
-		fmt.Println()
+// for key, value := range colsets {
+// fmt.Printf("%d%s%d%s", key[0], sep, key[1], sep)
+  for _, item := range *results {
+	path, ok := getPath(item.Path)
+	if !ok {
+		path = "--"
 	}
+
+    fmt.Printf("%d%s", item.Concurrency, sep)
+    fmt.Printf("%d%s", item.Requests, sep)
+    fmt.Printf("%s%s", path, sep)
+    fmt.Printf("%.0f%s", item.AvgReqTime, sep)
+    fmt.Printf("%.2f%s", item.ReqTimeSD, sep)
+    fmt.Printf("%.2f%s", item.ReqsPerSec, sep)
+    fmt.Printf("%d%s", item.MinReqTime, sep)
+    fmt.Printf("%d%s", item.MaxReqTime, sep)
+    fmt.Printf("%d%s", item.Time95PctDone, sep)
+    fmt.Printf("%d%s", item.ErrorCount, sep)
+
+    // We need to do this in a consistent order.
+    for _, name := range metrics {
+      metric, ok := (*item.Performance.Metrics)[name]
+      if !ok {
+        fmt.Printf("metric: '%s' not found.\n", name)
+      }
+
+      summary, ok := summarize(metric.Statistic, metric.Datapoints)
+      if ok {
+        fmt.Printf("%.2f%s", summary, sep)
+      } else {
+        fmt.Printf("--%s", sep)
+        fmt.Printf("metric name: '%s', value:  %v\n", name, metric)
+        panic("Not ok!")
+      }
+    }
+	fmt.Println()
+  }
 }
+// }
 
 func summarize(metric string, points []intermediate.Datapoint) (float64, bool) {
     // If we haven't returned with a failure value, by now we're good.
