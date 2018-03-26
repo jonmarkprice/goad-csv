@@ -54,4 +54,4 @@ else
   echo "Aborting"; exit;
 fi
 
-./pull-cw $dir
+./pull-cw.sh $dir

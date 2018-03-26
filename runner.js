@@ -9,7 +9,7 @@ const randomString = () => Math.floor(Math.random() * Math.floor(1e15)).toString
 const dirname = "/tmp/goad-" + randomString();
 
 const GOPATH = process.env.GOPATH;
-const goad = resolve(GOPATH, "./src/github.com/goadapp/goad/build/osx/x86-64/goad");
+const goad = resolve(GOPATH, "./src/github.com/goadapp/goad/build/linux/x86-64/goad");
 
 const baseUrl = "https://d3meihy2uf6moq.cloudfront.net";
 const headers = "Cookie: connect.sid=s%3AvdbZcF8ZZf7Uzdbk_uWgdpXhi1-jNJVA.b3i9m36LdekHceo59k2ogUFPqI8YnfgIm5ol%2BCtIOVs";
