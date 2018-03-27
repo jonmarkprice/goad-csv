@@ -3,13 +3,31 @@ const { execFile } = require("child_process");
 const fs = require("fs");
 const R = require("ramda");
 const F = require("fluture");
+const os = require("os");
 
 const randomString = () => Math.floor(Math.random() * Math.floor(1e15)).toString(36);
 
 const dirname = "/tmp/goad-" + randomString();
 
 const GOPATH = process.env.GOPATH;
-const goad = resolve(GOPATH, "./src/github.com/goadapp/goad/build/linux/x86-64/goad");
+
+const platform = {
+  "darwin": "osx",
+  "linux": "linux"
+}
+
+const arch = {
+  "x64": "x86-64"
+}
+
+const myArch = arch[os.arch()];
+const myOS = platform[os.platform()];
+
+if (myArch == undefined || myOS == undefined) {
+  process.exit(1);
+}
+
+const goad = resolve(GOPATH, `./src/github.com/goadapp/goad/build/${myOS}/${myArch}/goad`);
 
 const baseUrl = "https://d3meihy2uf6moq.cloudfront.net";
 const headers = "Cookie: connect.sid=s%3AvdbZcF8ZZf7Uzdbk_uWgdpXhi1-jNJVA.b3i9m36LdekHceo59k2ogUFPqI8YnfgIm5ol%2BCtIOVs";
@@ -87,9 +105,9 @@ function runTest(params) {
 
 function combos(url) {
   // TODO write a 3-way (or N-way) Catesian product, like xprod.
-  const requests = [100] //, 50000];
-  const concurrency = [4];
-  const paths = ['/nos', '/ping', '/'];
+  const requests = [1000];
+  const concurrency = [200];
+  const paths = ['/ping', '/'];
 
   /*
   const RxC = R.xprod(requests, concurrency);
