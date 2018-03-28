@@ -4,6 +4,7 @@ const fs = require("fs");
 const R = require("ramda");
 const F = require("fluture");
 const os = require("os");
+const util = require("util");
 
 const randomString = () => Math.floor(Math.random() * Math.floor(1e15)).toString(36);
 
@@ -53,70 +54,84 @@ const regions = [
   "sa-east-1",
 ];
 
-// const addFlag = R.compose(R.prepend("--region"), R.of);
 const regionsFlags = R.map(R.concat("--region="), regions);
 console.log(regionsFlags)
 
-const {
-  readData,
-  parseJSON,
-  serialize,
-  writeFile
-} = require("./intermediate.js");
+const readFile = util.promisify(fs.readFile);
+const writeFile = util.promisify(fs.writeFile);
 
 fs.mkdir(dirname, function(err) {
   if (err) {
     console.error("Could not create directory, quitting.");
   } else {
-    F.parallel(1, 
-      combos(baseUrl).map(p => 
-        F.node(runTest(p))
-        .chain(filename => readData(filename, fs.readFile))
-        .chain(parseJSON)
-    ))
-    .chain(serialize)
-    .chain(writeFile(outFile, {writer: fs.writeFile}))
-    .fork(console.log, console.error);
-}});
-
-//:: (...) -> fn -> Future
-function runTest(params) {
-  return function(cb) {
-    const [req, conc, url, index] = params;
-    const outputFile = `${dirname}/path-${index+1}_${req}x${conc}.json`;
-    const args = [
-      "--json-output=" + outputFile,
-      "-n", req,
-      "-c", conc,
-      ...regionsFlags,
-      "-H", headers,
-      url,
-    ];
-
-    return execFile(goad, args, {}, function(err, stdout, stderr) {
-      console.log("--- std out ---")
-      console.log(stdout)
-      console.log("--- std err ---")
-      console.log(stderr)
-      return cb(err, outputFile);
-    });
+    seq(runTest, combos(baseUrl))
+    .then(data => JSON.stringify(data, null, 3))
+    .then(text => writeFile(outFile, text))
+    .catch(console.error);
   }
+});
+
+function round(period) {
+  const now = new Date();
+  const time = now.getSeconds()
+  const ms = (period - (time % period)) * 1000;
+  console.log("It is now %s.", now);
+  console.log("Waiting %s seconds.", Math.floor(ms / 1000));
+
+  return new Promise(function(res, rej) {
+    setTimeout(res, ms)
+  });
+}
+
+async function seq(fn, args) {
+  let results = [];
+  const N = args.length;
+  for (let i = 0; i < N; i++) {
+    const result = await fn(args[i]) // TODO can spread too...
+      .then(readFile)
+      .then(JSON.parse); // XXX No catch
+
+    if (i < N - 1) { // Don't wait if we are done!
+      await round(60);
+      // TODO: +60 if "safe" option
+    }
+    results.push(result);
+  }
+  return results;
+}
+
+//:: (...) -> fn -> Promise
+function runTest(params) {
+  const [req, conc, url, index] = params;
+  const outputFile = `${dirname}/path-${index+1}_${req}x${conc}.json`;
+  const args = [
+    "--json-output=" + outputFile,
+    "-n", req,
+    "-c", conc,
+    ...regionsFlags,
+    "-H", headers,
+    url,
+  ];
+  return new Promise(function (resolve, reject) {
+    execFile(goad, args, {}, function(err, stdout, stderr) {
+      if (err != null) {
+        reject(err);
+      } else {
+        console.log("--- std out ---")
+        console.log(stdout)
+        console.log("--- std err ---")
+        console.log(stderr)
+        resolve(outputFile);
+      }
+    });
+  });
 }
 
 function combos(url) {
-  // TODO write a 3-way (or N-way) Catesian product, like xprod.
   const requests = [1000];
   const concurrency = [200];
   const paths = ['/ping', '/'];
 
-  /*
-  const RxC = R.xprod(requests, concurrency);
-  const all = routes.map(route => {
-    return RxC.map(([r,c]) => {
-      return [r, c, url + route];
-    });
-  });
-  */
   let all = []
   for (let r of requests) {
     for (let c of concurrency) {
