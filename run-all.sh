@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if test $# -ne 2; then
-  echo "Usage: run-all.sh --EB|--Lambda <folder>";
+if test $# -ne 3; then
+  echo "Usage: run-all.sh --EB|--Lambda <folder> <config>";
   exit;
 fi
 
@@ -12,6 +12,7 @@ fi
 env=$1
 name=$2
 dir="$HOME/runs/${name}"
+config=$3
 
 # goadd="$HOME/go/src/github.com/goadapp/goad/"
 # results=/tmp/${resultDir}
@@ -23,6 +24,7 @@ dir="$HOME/runs/${name}"
 
 echo "Env: $env"
 echo "Dir: $dir"
+echo "Config: $config"
 # echo "Goad file: ${file}"
 
 # TODO more err checking
@@ -39,7 +41,7 @@ fi
 
 # run runner!
 echo "Running tests..."
-if node runner.js; then
+if node runSuite.js ${config}; then
   cp -v raw.json ${dir}/goad.json
 else
   echo "Aborting"; exit;
